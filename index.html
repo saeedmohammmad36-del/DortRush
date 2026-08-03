@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Ball Into Cup</title>
+
+<style>
+*{box-sizing:border-box}
+
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:#111827;
+  touch-action:none;
+  font-family:Arial,sans-serif;
+}
+
+canvas{
+  display:block;
+  width:100vw;
+  height:100vh;
+  touch-action:none;
+}
+
+#ui{
+  position:fixed;
+  top:15px;
+  left:0;
+  right:0;
+  text-align:center;
+  color:white;
+  font-size:20px;
+  font-weight:bold;
+  pointer-events:none;
+}
+
+#message{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.72);
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  color:white;
+  font-size:28px;
+  font-weight:bold;
+}
+
+button{
+  margin-top:18px;
+  padding:13px 28px;
+  border:0;
+  border-radius:12px;
+  background:#31c85b;
+  color:white;
+  font-size:19px;
+  font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="ui">
+🥤 Ball Into Cup — المرحلة <span id="level">1</span>
+</div>
+
+<div id="message">
+  <div id="result"></div>
+  <button onclick="newRound()">جولة جديدة</button>
+</div>
+
+<script>
+
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+let W,H;
+let ball;
+let cup;
+let lines=[];
+
+let drawing=false;
+let gameOver=false;
+let level=1;
+
+function resize(){
+
+  W=innerWidth;
+  H=innerHeight;
+
+  canvas.width=W*devicePixelRatio;
+  canvas.height=H*devicePixelRatio;
+
+  canvas.style.width=W+"px";
+  canvas.style.height=H+"px";
+
+  ctx.setTransform(
+    devicePixelRatio,0,0,
+    devicePixelRatio,0,0
+  );
+
+  newRound();
+}
+
+
+/* بداية الجولة */
+
+function newRound(){
+
+  gameOver=false;
+  drawing=false;
+  lines=[];
+
+  document.getElementById("message").style.display="none";
+
+  /*
+    الطابة دائمًا من فوق
+  */
+
+  ball={
+    x:W/2,
+    y:105,
+    r:17,
+    vx:0,
+    vy:0,
+    started:false
+  };
+
+
+  /*
+    الكاسة تتغير مكانها
+    في كل جولة
+  */
+
+  const positions=[
+    .15,.28,.42,.58,.72,.85
+  ];
+
+  let pos=
+    positions[
+      Math.floor(Math.random()*positions.length)
+    ];
+
+  cup={
+    x:W*pos,
+    y:H-105,
+    w:100,
+    h:60
+  };
+}
+
+
+/* رسم الطابة */
+
+function drawBall(){
+
+  ctx.beginPath();
+
+  ctx.arc(
+    ball.x,
+    ball.y,
+    ball.r,
+    0,
+    Math.PI*2
+  );
+
+  ctx.fillStyle="#ff9d18";
+  ctx.fill();
+
+  ctx.strokeStyle="white";
+  ctx.lineWidth=3;
+  ctx.stroke();
+}
+
+
+/* رسم الكاسة */
+
+function drawCup(){
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    cup.x-cup.w/2,
+    cup.y
+  );
+
+  ctx.lineTo(
+    cup.x+cup.w/2,
+    cup.y
+  );
+
+  ctx.lineTo(
+    cup.x+cup.w/2-12,
+    cup.y+cup.h
+  );
+
+  ctx.lineTo(
+    cup.x-cup.w/2+12,
+    cup.y+cup.h
+  );
+
+  ctx.closePath();
+
+  ctx.fillStyle="#3498ff";
+  ctx.fill();
+
+  ctx.strokeStyle="white";
+  ctx.lineWidth=3;
+  ctx.stroke();
+
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    cup.x,
+    cup.y,
+    cup.w/2,
+    10,
+    0,
+    0,
+    Math.PI*2
+  );
+
+  ctx.fillStyle="#111827";
+  ctx.fill();
+
+  ctx.stroke();
+}
+
+
+/* رسم الخطوط */
+
+function drawLines(){
+
+  ctx.strokeStyle="white";
+  ctx.lineWidth=8;
+  ctx.lineCap="round";
+  ctx.lineJoin="round";
+
+  for(const line of lines){
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      line.x1,
+      line.y1
+    );
+
+    ctx.lineTo(
+      line.x2,
+      line.y2
+    );
+
+    ctx.stroke();
+  }
+}
+
+
+/* بدء سقوط الطابة */
+
+function startBall(){
+
+  if(ball.started)return;
+
+  ball.started=true;
+
+  ball.vy=1.5;
+}
+
+
+/* فيزياء الطابة */
+
+function physics(){
+
+  if(gameOver)return;
+
+  /*
+    تبدأ الطابة بالسقوط تلقائيًا
+  */
+
+  if(!ball.started){
+
+    startBall();
+  }
+
+
+  ball.vy+=0.25;
+
+  ball.y+=ball.vy;
+
+  ball.x+=ball.vx;
+
+
+  /*
+    حدود الشاشة
+  */
+
+  if(ball.x-ball.r<0){
+
+    ball.x=ball.r;
+    ball.vx=Math.abs(ball.vx)*.7;
+  }
+
+  if(ball.x+ball.r>W){
+
+    ball.x=W-ball.r;
+    ball.vx=-Math.abs(ball.vx)*.7;
+  }
+
+
+  /*
+    اصطدام الطابة بالخطوط
+  */
+
+  for(const line of lines){
+
+    let dx=line.x2-line.x1;
+    let dy=line.y2-line.y1;
+
+    let len=Math.hypot(dx,dy);
+
+    if(len<2)continue;
+
+    let t=
+      ((ball.x-line.x1)*dx+
+       (ball.y-line.y1)*dy)/
+      (len*len);
+
+    t=Math.max(
+      0,
+      Math.min(1,t)
+    );
+
+    let px=line.x1+t*dx;
+    let py=line.y1+t*dy;
+
+    let dist=Math.hypot(
+      ball.x-px,
+      ball.y-py
+    );
+
+
+    if(dist<ball.r+6){
+
+      /*
+        إبعاد الطابة عن الخط
+      */
+
+      ball.y=py-ball.r-6;
+
+
+      /*
+        ارتداد
+      */
+
+      ball.vy=-Math.abs(ball.vy)*.72;
+
+
+      /*
+        الخط المائل يعطي الطابة
+        حركة يمين أو شمال
+      */
+
+      ball.vx += dx/len*2.2;
+
+      ball.vx=Math.max(
+        -7,
+        Math.min(7,ball.vx)
+      );
+    }
+  }
+
+
+  /*
+    دخول الطابة بالكاسة
+  */
+
+  if(
+    ball.y+ball.r>=cup.y &&
+    ball.y<cup.y+cup.h &&
+    ball.x>cup.x-cup.w/2+12 &&
+    ball.x<cup.x+cup.w/2-12 &&
+    ball.vy>0
+  ){
+
+    win();
+    return;
+  }
+
+
+  /*
+    وصلت للأرض = خسارة
+  */
+
+  if(ball.y>H-35){
+
+    lose();
+  }
+}
+
+
+/* الفوز */
+
+function win(){
+
+  gameOver=true;
+
+  document.getElementById("result").textContent=
+    "🎉 أحسنت! دخلت الطابة بالكاسة!";
+
+  document.getElementById("message").style.display="flex";
+}
+
+
+/* الخسارة */
+
+function lose(){
+
+  gameOver=true;
+
+  document.getElementById("result").textContent=
+    "❌ خسرت! الكاسة تغيّرت مكانها بالجولة القادمة.";
+
+  document.getElementById("message").style.display="flex";
+}
+
+
+/* لمس الشاشة والرسم */
+
+function getPos(e){
+
+  const rect=canvas.getBoundingClientRect();
+
+  return{
+    x:e.clientX-rect.left,
+    y:e.clientY-rect.top
+  };
+}
+
+
+canvas.addEventListener(
+  "pointerdown",
+  e=>{
+
+    if(gameOver)return;
+
+    drawing=true;
+
+    const p=getPos(e);
+
+    lines.push({
+      x1:p.x,
+      y1:p.y,
+      x2:p.x,
+      y2:p.y
+    });
+  }
+);
+
+
+canvas.addEventListener(
+  "pointermove",
+  e=>{
+
+    if(!drawing || gameOver)return;
+
+    const p=getPos(e);
+
+    const last=lines[lines.length-1];
+
+    if(last){
+
+      last.x2=p.x;
+      last.y2=p.y;
+    }
+
+    /*
+      كل جزء من السحب يصبح خطًا
+    */
+
+    lines.push({
+      x1:p.x,
+      y1:p.y,
+      x2:p.x,
+      y2:p.y
+    });
+  }
+);
+
+
+canvas.addEventListener(
+  "pointerup",
+  ()=>{
+    drawing=false;
+  }
+);
+
+
+canvas.addEventListener(
+  "pointercancel",
+  ()=>{
+    drawing=false;
+  }
+);
+
+
+/* الحلقة الرئيسية */
+
+function loop(){
+
+  ctx.clearRect(
+    0,
+    0,
+    W,
+    H
+  );
+
+
+  /* الأرض */
+
+  ctx.fillStyle="#202936";
+
+  ctx.fillRect(
+    0,
+    H-35,
+    W,
+    35
+  );
+
+
+  drawCup();
+  drawLines();
+  drawBall();
+
+  physics();
+
+  requestAnimationFrame(loop);
+}
+
+
+addEventListener(
+  "resize",
+  resize
+);
+
+resize();
+loop();
+
+</script>
+
+</body>
+  </html>
